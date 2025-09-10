@@ -24,15 +24,14 @@ class Chip8Frontend {
 
     async loadWasm() {
         try {
-            // TODO: Load WASM module when backend is built
-            // this.wasm = await import('./pkg/chip8_emulator.js');
-            // await this.wasm.default();
-            // this.emulator = new this.wasm.Chip8();
+            this.wasm = await import('emuweb');
+
+            await this.wasm.default();
+
+            this.emulator = new this.wasm.Chip8();
             
             console.log('WASM loading placeholder - build backend first');
-            
-            // For now, create a mock emulator for testing
-            this.emulator = new MockChip8();
+            // 
             
         } catch (error) {
             console.error('Failed to load WASM:', error);
@@ -175,10 +174,10 @@ class Chip8Frontend {
         if (!this.emulator) return;
 
         // TODO: Get display buffer from WASM
-        // const displayBuffer = this.emulator.get_display_buffer();
+        const displayBuffer = this.emulator.get_display_buffer();
         
         // For now, use mock display
-        const displayBuffer = this.emulator.getDisplay();
+        // const displayBuffer = this.emulator.getDisplay();
         
         // Clear canvas
         this.ctx.fillStyle = '#000000';
@@ -256,84 +255,6 @@ class Chip8Frontend {
     showError(message) {
         // Simple error display - could be improved with a modal
         alert(`Error: ${message}`);
-    }
-}
-
-// Mock CHIP-8 emulator for testing without WASM
-class MockChip8 {
-    constructor() {
-        this.display = new Uint8Array(64 * 32);
-        this.keys = new Array(16).fill(false);
-        this.romLoaded = false;
-        
-        // Create a simple test pattern
-        this.createTestPattern();
-    }
-
-    load_rom(data) {
-        this.romLoaded = true;
-        console.log(`Mock: Loaded ${data.length} bytes`);
-        this.createTestPattern();
-    }
-
-    step() {
-        // Mock CPU step - just animate the test pattern
-        if (this.romLoaded) {
-            this.animateTestPattern();
-        }
-    }
-
-    getDisplay() {
-        return this.display;
-    }
-
-    setKey(key, pressed) {
-        if (key >= 0 && key < 16) {
-            this.keys[key] = pressed;
-            console.log(`Mock: Key ${key.toString(16)} ${pressed ? 'pressed' : 'released'}`);
-        }
-    }
-
-    createTestPattern() {
-        // Create a simple CHIP-8 logo pattern
-        this.display.fill(0);
-        
-        // Draw "CHIP-8" in a simple pixel font
-        const pattern = [
-            "  ####  #   # # ####        ##  ",
-            " #      #   # # #   #      #  # ",
-            " #      ##### # ####   ### #  # ",
-            " #      #   # # #          #  # ",
-            "  ####  #   # # #           ##  "
-        ];
-        
-        for (let y = 0; y < pattern.length; y++) {
-            for (let x = 0; x < pattern[y].length; x++) {
-                if (pattern[y][x] === '#') {
-                    const displayX = x + 16; // Center horizontally
-                    const displayY = y + 12; // Center vertically
-                    if (displayX < 64 && displayY < 32) {
-                        this.display[displayY * 64 + displayX] = 1;
-                    }
-                }
-            }
-        }
-    }
-
-    animateTestPattern() {
-        // Simple animation - just blink a border
-        const frame = Math.floor(Date.now() / 500) % 2;
-        
-        // Draw border
-        for (let x = 0; x < 64; x++) {
-            this.display[x] = frame; // Top
-            this.display[31 * 64 + x] = frame; // Bottom
-        }
-        
-        for (let y = 0; y < 32; y++) {
-            this.display[y * 64] = frame; // Left
-            this.display[y * 64 + 63] = frame; // Right
-        }
     }
 }
 

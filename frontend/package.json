@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "main": "main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+      "build-wasm": "cd ../emuweb-wasm && wasm-pack build --target web",
+      "watch-wasm": "nodemon --watch ../emuweb-wasm/src --ext rs --exec \"npm run build-wasm\"",
+      "dev": "npm run build-wasm && concurrently \"npm run watch-wasm\" \"vite\"",
+      "start": "npm run dev"
   },
   "keywords": [],
   "author": "",
@@ -13,6 +16,8 @@
     "emuweb": "file:../emuweb-wasm/pkg"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
+    "nodemon": "^3.1.10",
     "vite": "^6.3.5"
   }
 }

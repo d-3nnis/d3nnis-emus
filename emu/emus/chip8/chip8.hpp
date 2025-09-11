@@ -1,7 +1,5 @@
-// #include "SDL3/SDL.h"
 #include <SDL3/SDL.h>
 #include <cstdint>
-#include <memory>
 
 static constexpr int MEMORY_SIZE = 4096;
 static constexpr uint8_t MEMORY[MEMORY_SIZE] = {};

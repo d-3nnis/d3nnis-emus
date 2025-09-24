@@ -2,7 +2,7 @@
 
 # Default target - build and run
 run: debug
-	./build/debug/emu
+	./build/debug/chip8_emulator
 
 # Quick development cycle
 dev: clean debug run
@@ -11,6 +11,7 @@ dev: clean debug run
 debug:
 	cmake -B build/debug -DCMAKE_BUILD_TYPE=Debug
 	cmake --build build/debug -j
+	ln -sf build/debug/compile_commands.json .
 
 # Auto-rebuild on file changes (requires entr)
 watch:

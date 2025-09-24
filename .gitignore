@@ -49,3 +49,5 @@ Thumbs.db
 # WASM build output
 pkg/
 **/pkg/
+*.cache
+compile_commands.json

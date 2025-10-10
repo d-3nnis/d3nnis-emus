@@ -2,7 +2,7 @@
 
 # Default target - build and run
 run: debug
-	./build/debug/chip8_emulator
+	./build/debug/chip8_emulator ./test_roms/life.ch8
 
 # Quick development cycle
 dev: clean debug run

@@ -51,3 +51,5 @@ pkg/
 **/pkg/
 *.cache
 compile_commands.json
+
+**/test_roms/*

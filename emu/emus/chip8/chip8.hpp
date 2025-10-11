@@ -121,6 +121,7 @@ class Chip8 {
             (memory.STACK[memory.SP] << 8 | memory.STACK[memory.SP + 1]);
         SDL_Log("Returning to %x\n", storedSP);
         memory.PC = storedSP;
+        memory.PC += 2;
     }
 
     void callSubroutine(const int nnn) {
@@ -355,13 +356,31 @@ class Chip8 {
             break;
         case 0xD: {
             int spriteHeight = n;
+            memory.REGISTERS[0xF] = 0;
             auto xRegister = memory.REGISTERS[xRegisterIdx];
             auto yRegister = memory.REGISTERS[yRegisterIdx];
-            for (int i = 0; i < spriteHeight; i++) {
-                auto drawByte = memory.MEMORY[memory.I + i];
-                memory.MEMORY[Chip8Hardware::DISPLAY_START +
-                              yRegister * CHIP8_DISPLAY_WIDTH +
-                              i * CHIP8_DISPLAY_WIDTH + xRegister] = drawByte;
+            for (int row = 0; row < spriteHeight; row++) {
+                auto drawByte = memory.MEMORY[memory.I + row];
+                for (int col = 0; col < BITS_PER_BYTE; col++) {
+                    // iterate over bits
+                    bool pixelOn = drawByte & (0x80 >> col);
+                    if (pixelOn) {
+                        int xPixel = (xRegister + col) % CHIP8_DISPLAY_WIDTH;
+                        int yPixel = (yRegister + row) % CHIP8_DISPLAY_HEIGHT;
+                        int byteIdx = (yPixel * CHIP8_DISPLAY_WIDTH + xPixel) /
+                                      BITS_PER_BYTE;
+                        int bitIdx =
+                            7 - ((yPixel * CHIP8_DISPLAY_WIDTH + xPixel) %
+                                 BITS_PER_BYTE);
+                        if (memory.MEMORY[Chip8Hardware::DISPLAY_START +
+                                          byteIdx] &
+                            (1 << bitIdx)) {
+                            memory.REGISTERS[0xF] = 1;
+                        }
+                        memory.MEMORY[Chip8Hardware::DISPLAY_START + byteIdx] ^=
+                            (1 << bitIdx);
+                    }
+                }
             }
             memory.PC += 2;
             break;
@@ -394,6 +413,18 @@ class Chip8 {
                 memory.PC += 2;
                 break;
             }
+            case 0x1E: {
+                memory.I += memory.REGISTERS[xRegisterIdx];
+                memory.PC += 2;
+                break;
+            }
+            case 0x55: {
+                // TODO conflicting specs here
+                memcpy(&memory.MEMORY[memory.I], &memory.REGISTERS[0],
+                       xRegisterIdx + 1);
+                memory.PC += 2;
+                break;
+            }
             default: {
                 throw std::runtime_error("Unrecognized instruction:" +
                                          std::to_string(instruction) + "\n");
@@ -420,7 +451,6 @@ class Chip8 {
 
     Chip8Status nextCycle() {
         handleInstruction();
-        decrementTimers();
         return Chip8Status::OK;
     }
 

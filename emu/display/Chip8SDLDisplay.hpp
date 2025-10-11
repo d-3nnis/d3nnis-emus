@@ -44,13 +44,13 @@ class Chip8SDLDisplay {
     ~Chip8SDLDisplay() {
         SDL_QuitSubSystem(SDL_INIT_VIDEO);
         if (window) {
-            free(window);
+            SDL_DestroyWindow(window);
         }
         if (renderer) {
-            free(renderer);
+            SDL_DestroyRenderer(renderer);
         }
         if (texture) {
-            free(texture);
+            SDL_DestroyTexture(texture);
         }
     }
 
@@ -65,7 +65,7 @@ class Chip8SDLDisplay {
 
         for (std::size_t i = 0; i < size; i++) {
             for (std::size_t bit = 0; bit < BITS_PER_BYTE; bit++) {
-                bool bitOn = (chip8DisplayBuf[i] >> bit) & 1;
+                bool bitOn = (chip8DisplayBuf[i] >> (7 - bit)) & 1;
                 displayBuf.at(i * BITS_PER_BYTE + bit) =
                     bitOn ? 0xFFFFFFFF : 0x00000000;
             }

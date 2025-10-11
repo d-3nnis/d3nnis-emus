@@ -12,6 +12,12 @@ void Chip8::startChip8Emu(void) {
     Chip8SDLDisplay<CHIP8_DISPLAY_WIDTH, CHIP8_DISPLAY_HEIGHT> display;
     SDL_AddEventWatch(AppLifecycleWatcher, NULL);
 
+    // for (int i = Chip8Hardware::DISPLAY_START;
+    //      i < Chip8Hardware::DISPLAY_START + (Chip8Hardware::DISPLAY_SIZE / 2);
+    //      i++) {
+    //     this->memory.MEMORY[i] = 0xFF;
+    // }
+
     bool quit = false;
     while (!quit) {
         auto frame_start = std::chrono::steady_clock::now();
@@ -29,7 +35,7 @@ void Chip8::startChip8Emu(void) {
         for (int i = 0; i < INSTRUCTIONS_PER_FRAME; i++) {
             nextCycle();
         }
-        // sleep(1);
+        decrementTimers();
         display.update(&this->memory.MEMORY[Chip8Hardware::DISPLAY_START],
                        Chip8Hardware::DISPLAY_SIZE);
         auto frame_end = std::chrono::steady_clock::now();

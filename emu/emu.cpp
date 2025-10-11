@@ -1,7 +1,9 @@
+#include "Chip8SDLPlatform.hpp"
 #include "emus/chip8/chip8.hpp"
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <vector>
 
 int main(int argc, char *argv[]) {
@@ -10,16 +12,17 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    std::filesystem::path programPath = argv[1];
+    std::filesystem::path romPath = argv[1];
     int instructionsPerUpdate = std::stoi(argv[2]);
-    if (!std::filesystem::exists(programPath) ||
-        !std::filesystem::is_regular_file(programPath)) {
-        printf("File does not exist or is not a regular file: %s\n",
-               programPath.c_str());
+    if (!std::filesystem::exists(romPath) ||
+        !std::filesystem::is_regular_file(romPath)) {
+        std::cerr << "File does not exist or is not a regular file:" << romPath
+                  << "\n";
+        return 1;
     }
-    std::ifstream rom(programPath, std::ios::in | std::ios::binary);
+    std::ifstream rom(romPath, std::ios::in | std::ios::binary);
     if (rom.fail()) {
-        printf("Failed to open file: %s\n", programPath.c_str());
+        std::cerr << "Failed to open file:" << romPath.c_str() << "\n";
         return 1;
     }
 
@@ -27,8 +30,16 @@ int main(int argc, char *argv[]) {
                                    std::istreambuf_iterator<char>());
     rom.close();
 
-    Chip8 chip8(instructionsPerUpdate);
-    chip8.loadProgram(romBuffer);
-    chip8.startChip8Emu();
+    Chip8 emulator;
+    emulator.loadProgram(romBuffer);
+
+    Chip8SDLPlatform::Config chip8Config = {
+        .displayPixelWidth = 64,
+        .displayPixelHeight = 32,
+        .displayScale = 10,
+        .instructionsPerFrame = instructionsPerUpdate,
+    };
+    Chip8SDLPlatform platform(chip8Config);
+    platform.run(emulator);
     return 0;
 }

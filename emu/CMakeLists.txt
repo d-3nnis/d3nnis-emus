@@ -8,9 +8,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 add_subdirectory(vendor)
 
 include_directories(${CMAKE_SOURCE_DIR}/utils)
-add_subdirectory(display)
+add_subdirectory(platform)
 add_subdirectory(emus)
 
 add_executable(chip8_emulator emu.cpp)
-target_link_libraries(chip8_emulator PRIVATE display_lib chip8_lib)
+target_link_libraries(chip8_emulator PRIVATE chip8_sdl_platform chip8_lib)
 

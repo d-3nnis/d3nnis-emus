@@ -27,7 +27,6 @@ class Chip8SDLDisplay {
             throw std::runtime_error("SDL already initialized");
         }
 
-        // SDL_Init(SDL_INIT_VIDEO);
         SDL_InitSubSystem(SDL_INIT_VIDEO);
         window =
             SDL_CreateWindow("Chip8Emu", DisplayPixelWidth * 10,

@@ -10,6 +10,7 @@
 #include <cstring>
 #include <expected>
 #include <limits>
+#include <random>
 #include <stdexcept>
 #include <string>
 #include <sys/types.h>
@@ -39,8 +40,18 @@ class Chip8 {
         uint16_t I = 0;
         uint8_t DELAY_TIMER = 0;
         uint8_t SOUND_TIMER = 0;
+
+        void reset() {
+            KEY_STATE = 0;
+            PC = PROGRAM_START;
+            SP = 0;
+            I = 0;
+            DELAY_TIMER = 0;
+            SOUND_TIMER = 0;
+        }
     };
-    static constexpr int INSTRUCTIONS_PER_FRAME = 10;
+
+    // DO NOT CHANGE, TIMERS RELY ON THIS
     static constexpr int TARGET_FPS = 60;
     static constexpr int FRAME_TIME_MS = 1000 / TARGET_FPS;
 
@@ -76,17 +87,22 @@ class Chip8 {
                                       Chip8Sprites::SPRITE_HEIGHT];
     }
 
-    // chip8 sprites
-
     static constexpr int CHIP8_DISPLAY_WIDTH = 64;
     static constexpr int CHIP8_DISPLAY_HEIGHT = 32;
 
   public:
-    Chip8() : memory() {
+    Chip8(int instructionPerFrame)
+        : memory(), instructionPerFrame(instructionPerFrame) {
         assert(CHIP8_DISPLAY_HEIGHT * CHIP8_DISPLAY_WIDTH ==
                Chip8Hardware::DISPLAY_SIZE * BITS_PER_BYTE);
         memcpy(memory.MEMORY, Chip8Sprites::sprites.data(),
                Chip8Sprites::SPRITE_MEMORY_SIZE);
+
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<uint8_t> dist(
+            std::numeric_limits<uint8_t>::min(),
+            std::numeric_limits<uint8_t>::max());
     }
 
     enum class Chip8Status {
@@ -119,7 +135,6 @@ class Chip8 {
         memory.SP -= 2;
         uint16_t storedSP =
             (memory.STACK[memory.SP] << 8 | memory.STACK[memory.SP + 1]);
-        SDL_Log("Returning to %x\n", storedSP);
         memory.PC = storedSP;
         memory.PC += 2;
     }
@@ -147,8 +162,6 @@ class Chip8 {
             SDL_Log("UNRECOGNIZED_KEY");
         }
     }
-
-    // uint16_t
 
     std::expected<int, Chip8Status> mapSDLCode(SDL_Scancode code) {
         switch (code) {
@@ -198,18 +211,24 @@ class Chip8 {
         const int n = (instruction & 0x000F);
         const int kk = (instruction & 0x00FF);
 
-        SDL_Log("instruction: %x\n", instruction);
         logState();
+        SDL_Log("instruction: %x\n", instruction);
         switch ((instruction & 0xF000) >> 12) {
         case 0x0: {
             switch (instruction) {
-            case 0x00E0:
+            case 0x00E0: {
                 clearDisplay();
                 memory.PC += 2;
                 break;
-            case 0x00EE:
+            }
+            case 0x00EE: {
                 returnFromSubroutine();
                 break;
+            }
+            default: {
+                throw std::runtime_error("Unrecognized instruction:" +
+                                         std::to_string(instruction) + "\n");
+            }
             }
             break;
         }
@@ -239,9 +258,16 @@ class Chip8 {
             }
             break;
         }
-        case 0x5:
-            throw std::runtime_error("unhandled case\n");
+        case 0x5: {
+            int xRegister = memory.REGISTERS[xRegisterIdx];
+            int yRegister = memory.REGISTERS[yRegisterIdx];
+            if (xRegister == yRegister) {
+                memory.PC += 4;
+            } else {
+                memory.PC += 2;
+            }
             break;
+        }
         case 0x6: {
             uint8_t instructionValue =
                 static_cast<uint8_t>(instruction & 0x00FF);
@@ -340,20 +366,32 @@ class Chip8 {
             memory.PC += 2;
             break;
         }
-        case 0x9:
-            throw std::runtime_error("unhandled case\n");
+        case 0x9: {
+            int xRegister = memory.REGISTERS[xRegisterIdx];
+            int yRegister = memory.REGISTERS[yRegisterIdx];
+            if (xRegister != yRegister) {
+                memory.PC += 4;
+            } else {
+                memory.PC += 2;
+            }
             break;
+        }
         case 0xA: {
             memory.I = nnn;
             memory.PC += 2;
             break;
         }
-        case 0xB:
-            throw std::runtime_error("unhandled case\n");
+        case 0xB: {
+            int registerValue = memory.REGISTERS[0];
+            memory.PC = nnn + registerValue;
             break;
-        case 0xC:
-            throw std::runtime_error("unhandled case\n");
+        }
+        case 0xC: {
+            memory.REGISTERS[xRegisterIdx] =
+                getRandomByte() & static_cast<uint8_t>(kk);
+            memory.PC += 2;
             break;
+        }
         case 0xD: {
             int spriteHeight = n;
             memory.REGISTERS[0xF] = 0;
@@ -385,21 +423,42 @@ class Chip8 {
             memory.PC += 2;
             break;
         }
-        case 0xE:
-            throw std::runtime_error("unhandled case\n");
-
+        case 0xE: {
+            uint8_t key = memory.REGISTERS[xRegisterIdx] & 0xF;
+            switch (instruction & 0xFF) {
+            case 0x9E: {
+                if (((1 << key) & memory.KEY_STATE) != 0) {
+                    memory.PC += 4;
+                } else {
+                    memory.PC += 2;
+                }
+                break;
+            }
+            case 0xA1: {
+                if (((1 << key) & memory.KEY_STATE) == 0) {
+                    memory.PC += 4;
+                } else {
+                    memory.PC += 2;
+                }
+                break;
+            }
+            }
             break;
+        }
         case 0xF:
             switch (instruction & 0xFF) {
             case 0x0A: {
-                int registerIdx = (instruction & 0x0F00) >> 8;
-                if (!memory.KEY_STATE) {
-                    break;
-                }
+                static bool waitingForKeyUp = false;
+                static uint8_t keyPressed = 0;
 
-                memory.REGISTERS[registerIdx] =
-                    std::countr_zero(memory.KEY_STATE);
-                memory.PC += 2;
+                if (!waitingForKeyUp && memory.KEY_STATE) {
+                    keyPressed = std::countr_zero(memory.KEY_STATE);
+                    waitingForKeyUp = true;
+                } else if (waitingForKeyUp && !memory.KEY_STATE) {
+                    waitingForKeyUp = false;
+                    memory.REGISTERS[xRegisterIdx] = keyPressed;
+                    memory.PC += 2;
+                }
                 break;
             }
             case 0x15: {
@@ -421,6 +480,13 @@ class Chip8 {
             case 0x55: {
                 // TODO conflicting specs here
                 memcpy(&memory.MEMORY[memory.I], &memory.REGISTERS[0],
+                       xRegisterIdx + 1);
+                memory.PC += 2;
+                break;
+            }
+            case 0x65: {
+                // TODO conflicting specs here
+                memcpy(&memory.REGISTERS[0], &memory.MEMORY[memory.I],
                        xRegisterIdx + 1);
                 memory.PC += 2;
                 break;
@@ -449,11 +515,6 @@ class Chip8 {
         }
     }
 
-    Chip8Status nextCycle() {
-        handleInstruction();
-        return Chip8Status::OK;
-    }
-
     void logState() {
         SDL_Log("PC: %x", memory.PC);
         SDL_Log("SP: %x", memory.SP);
@@ -466,6 +527,11 @@ class Chip8 {
         SDL_Log("%s", registers.c_str());
     }
 
+    uint8_t getRandomByte() { return dist(gen); }
+
   private:
     Chip8Hardware memory;
+    std::mt19937 gen;
+    std::uniform_int_distribution<uint8_t> dist;
+    const int instructionPerFrame;
 };

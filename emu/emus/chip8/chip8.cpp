@@ -12,18 +12,11 @@ void Chip8::startChip8Emu(void) {
     Chip8SDLDisplay<CHIP8_DISPLAY_WIDTH, CHIP8_DISPLAY_HEIGHT> display;
     SDL_AddEventWatch(AppLifecycleWatcher, NULL);
 
-    // for (int i = Chip8Hardware::DISPLAY_START;
-    //      i < Chip8Hardware::DISPLAY_START + (Chip8Hardware::DISPLAY_SIZE / 2);
-    //      i++) {
-    //     this->memory.MEMORY[i] = 0xFF;
-    // }
-
     bool quit = false;
     while (!quit) {
         auto frame_start = std::chrono::steady_clock::now();
         SDL_Event evt;
         while (SDL_PollEvent(&evt)) {
-            SDL_Log("Event: %d", evt.type);
             if (evt.type == SDL_EVENT_QUIT) {
                 quit = 1;
             } else if (evt.type == SDL_EVENT_KEY_DOWN) {
@@ -32,8 +25,8 @@ void Chip8::startChip8Emu(void) {
                 handleKeyUp(evt.key.scancode);
             }
         }
-        for (int i = 0; i < INSTRUCTIONS_PER_FRAME; i++) {
-            nextCycle();
+        for (int i = 0; i < instructionPerFrame; i++) {
+            handleInstruction();
         }
         decrementTimers();
         display.update(&this->memory.MEMORY[Chip8Hardware::DISPLAY_START],

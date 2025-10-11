@@ -1,5 +1,5 @@
 #include "Chip8SDLPlatform.hpp"
-#include "emus/chip8/chip8.hpp"
+#include "chip8.hpp"
 #include <cstdio>
 #include <filesystem>
 #include <fstream>

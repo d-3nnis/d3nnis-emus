@@ -92,10 +92,10 @@ class Chip8 {
 
   public:
     Chip8(int instructionPerFrame)
-        : memory(), instructionPerFrame(instructionPerFrame) {
+        : hardware(), instructionPerFrame(instructionPerFrame) {
         assert(CHIP8_DISPLAY_HEIGHT * CHIP8_DISPLAY_WIDTH ==
                Chip8Hardware::DISPLAY_SIZE * BITS_PER_BYTE);
-        memcpy(memory.MEMORY, Chip8Sprites::sprites.data(),
+        memcpy(hardware.MEMORY, Chip8Sprites::sprites.data(),
                Chip8Sprites::SPRITE_MEMORY_SIZE);
 
         std::random_device rd;
@@ -117,39 +117,39 @@ class Chip8 {
     Chip8Status loadProgram(std::vector<uint8_t> program) {
         auto size = program.size();
         if (size + Chip8Hardware::PROGRAM_START > Chip8Hardware::MEMORY_SIZE) {
-            SDL_Log("ROM exceeds max size\n");
+            // SDL_Log("ROM exceeds max size\n");
             return Chip8Status::ROM_OVERSIZED;
         }
 
-        std::memcpy(&memory.MEMORY[Chip8Hardware::PROGRAM_START],
+        std::memcpy(&hardware.MEMORY[Chip8Hardware::PROGRAM_START],
                     program.data(), size);
         return Chip8Status::OK;
     }
 
     void clearDisplay() {
-        memset(&this->memory.MEMORY[Chip8Hardware::DISPLAY_START], 0,
+        memset(&this->hardware.MEMORY[Chip8Hardware::DISPLAY_START], 0,
                Chip8Hardware::DISPLAY_SIZE);
     }
 
     void returnFromSubroutine() {
-        memory.SP -= 2;
+        hardware.SP -= 2;
         uint16_t storedSP =
-            (memory.STACK[memory.SP] << 8 | memory.STACK[memory.SP + 1]);
-        memory.PC = storedSP;
-        memory.PC += 2;
+            (hardware.STACK[hardware.SP] << 8 | hardware.STACK[hardware.SP + 1]);
+        hardware.PC = storedSP;
+        hardware.PC += 2;
     }
 
     void callSubroutine(const int nnn) {
-        memory.STACK[memory.SP] = (memory.PC >> 8);
-        memory.STACK[memory.SP + 1] = memory.PC & 0xFF;
-        memory.SP += 2;
-        memory.PC = nnn;
+        hardware.STACK[hardware.SP] = (hardware.PC >> 8);
+        hardware.STACK[hardware.SP + 1] = hardware.PC & 0xFF;
+        hardware.SP += 2;
+        hardware.PC = nnn;
     }
 
     void handleKeyUp(SDL_Scancode code) {
         auto result = mapSDLCode(code);
         if (result.has_value()) {
-            memory.KEY_STATE &= ~(1 << result.value());
+            hardware.KEY_STATE &= ~(1 << result.value());
         } else {
             SDL_Log("UNRECOGNIZED_KEY");
         }
@@ -157,7 +157,7 @@ class Chip8 {
     void handleKeyDown(SDL_Scancode code) {
         auto result = mapSDLCode(code);
         if (result.has_value()) {
-            memory.KEY_STATE |= 1 << result.value();
+            hardware.KEY_STATE |= 1 << result.value();
         } else {
             SDL_Log("UNRECOGNIZED_KEY");
         }
@@ -204,7 +204,7 @@ class Chip8 {
 
     Chip8Status handleInstruction() {
         const uint16_t instruction =
-            (memory.MEMORY[memory.PC] << 8 | memory.MEMORY[memory.PC + 1]);
+            (hardware.MEMORY[hardware.PC] << 8 | hardware.MEMORY[hardware.PC + 1]);
         const int xRegisterIdx = (instruction & 0x0F00) >> 8;
         const int yRegisterIdx = (instruction & 0x00F0) >> 4;
         const int nnn = (instruction & 0x0FFF);
@@ -216,7 +216,7 @@ class Chip8 {
             switch (instruction) {
             case 0x00E0: {
                 clearDisplay();
-                memory.PC += 2;
+                hardware.PC += 2;
                 break;
             }
             case 0x00EE: {
@@ -231,7 +231,7 @@ class Chip8 {
             break;
         }
         case 0x1: {
-            memory.PC = nnn;
+            hardware.PC = nnn;
             break;
         }
         case 0x2: {
@@ -239,120 +239,120 @@ class Chip8 {
             break;
         }
         case 0x3: {
-            int registerValue = memory.REGISTERS[xRegisterIdx];
+            int registerValue = hardware.REGISTERS[xRegisterIdx];
             if (kk == registerValue) {
-                memory.PC += 4;
+                hardware.PC += 4;
             } else {
-                memory.PC += 2;
+                hardware.PC += 2;
             }
             break;
         }
         case 0x4: {
-            int registerValue = memory.REGISTERS[xRegisterIdx];
+            int registerValue = hardware.REGISTERS[xRegisterIdx];
             if (kk != registerValue) {
-                memory.PC += 4;
+                hardware.PC += 4;
             } else {
-                memory.PC += 2;
+                hardware.PC += 2;
             }
             break;
         }
         case 0x5: {
-            int xRegister = memory.REGISTERS[xRegisterIdx];
-            int yRegister = memory.REGISTERS[yRegisterIdx];
+            int xRegister = hardware.REGISTERS[xRegisterIdx];
+            int yRegister = hardware.REGISTERS[yRegisterIdx];
             if (xRegister == yRegister) {
-                memory.PC += 4;
+                hardware.PC += 4;
             } else {
-                memory.PC += 2;
+                hardware.PC += 2;
             }
             break;
         }
         case 0x6: {
             uint8_t instructionValue =
                 static_cast<uint8_t>(instruction & 0x00FF);
-            memory.REGISTERS[xRegisterIdx] = instructionValue;
-            memory.PC += 2;
+            hardware.REGISTERS[xRegisterIdx] = instructionValue;
+            hardware.PC += 2;
             break;
         }
         case 0x7: {
-            memory.REGISTERS[xRegisterIdx] += kk;
-            memory.PC += 2;
+            hardware.REGISTERS[xRegisterIdx] += kk;
+            hardware.PC += 2;
             break;
         }
         case 0x8: {
             switch (instruction & 0xF) {
             case 0x0: {
-                memory.REGISTERS[xRegisterIdx] = memory.REGISTERS[yRegisterIdx];
+                hardware.REGISTERS[xRegisterIdx] = hardware.REGISTERS[yRegisterIdx];
                 break;
             }
             case 0x1: {
-                memory.REGISTERS[xRegisterIdx] |=
-                    memory.REGISTERS[yRegisterIdx];
+                hardware.REGISTERS[xRegisterIdx] |=
+                    hardware.REGISTERS[yRegisterIdx];
                 break;
             }
             case 0x2: {
-                memory.REGISTERS[xRegisterIdx] &=
-                    memory.REGISTERS[yRegisterIdx];
+                hardware.REGISTERS[xRegisterIdx] &=
+                    hardware.REGISTERS[yRegisterIdx];
                 break;
             }
             case 0x3: {
-                memory.REGISTERS[xRegisterIdx] ^=
-                    memory.REGISTERS[yRegisterIdx];
+                hardware.REGISTERS[xRegisterIdx] ^=
+                    hardware.REGISTERS[yRegisterIdx];
                 break;
             }
             case 0x4: {
-                int total = memory.REGISTERS[xRegisterIdx] +
-                            memory.REGISTERS[yRegisterIdx];
+                int total = hardware.REGISTERS[xRegisterIdx] +
+                            hardware.REGISTERS[yRegisterIdx];
                 if (total > std::numeric_limits<uint8_t>::max()) {
-                    memory.REGISTERS[0xF] = 1;
+                    hardware.REGISTERS[0xF] = 1;
                 } else {
-                    memory.REGISTERS[0xF] = 0;
+                    hardware.REGISTERS[0xF] = 0;
                 }
-                memory.REGISTERS[xRegisterIdx] = static_cast<uint8_t>(total);
+                hardware.REGISTERS[xRegisterIdx] = static_cast<uint8_t>(total);
                 break;
             }
             case 0x5: {
                 // TODO wrong?
-                int result = memory.REGISTERS[xRegisterIdx] -
-                             memory.REGISTERS[yRegisterIdx];
+                int result = hardware.REGISTERS[xRegisterIdx] -
+                             hardware.REGISTERS[yRegisterIdx];
                 if (result < 0) {
-                    memory.REGISTERS[0xF] = 0;
+                    hardware.REGISTERS[0xF] = 0;
                 } else {
-                    memory.REGISTERS[0xF] = 1;
+                    hardware.REGISTERS[0xF] = 1;
                 }
-                memory.REGISTERS[xRegisterIdx] -=
-                    memory.REGISTERS[yRegisterIdx];
+                hardware.REGISTERS[xRegisterIdx] -=
+                    hardware.REGISTERS[yRegisterIdx];
                 break;
             }
             case 0x6: {
-                if ((memory.REGISTERS[xRegisterIdx] & 1) == 1) {
-                    memory.REGISTERS[0xF] = 1;
+                if ((hardware.REGISTERS[xRegisterIdx] & 1) == 1) {
+                    hardware.REGISTERS[0xF] = 1;
                 } else {
-                    memory.REGISTERS[0xF] = 0;
+                    hardware.REGISTERS[0xF] = 0;
                 }
-                memory.REGISTERS[xRegisterIdx] =
-                    memory.REGISTERS[xRegisterIdx] >> 1;
+                hardware.REGISTERS[xRegisterIdx] =
+                    hardware.REGISTERS[xRegisterIdx] >> 1;
                 break;
             }
             case 0x7: {
-                int result = memory.REGISTERS[yRegisterIdx] -
-                             memory.REGISTERS[xRegisterIdx];
+                int result = hardware.REGISTERS[yRegisterIdx] -
+                             hardware.REGISTERS[xRegisterIdx];
                 if (result < 0) {
-                    memory.REGISTERS[0xF] = 0;
+                    hardware.REGISTERS[0xF] = 0;
                 } else {
-                    memory.REGISTERS[0xF] = 1;
+                    hardware.REGISTERS[0xF] = 1;
                 }
-                memory.REGISTERS[xRegisterIdx] =
-                    memory.REGISTERS[yRegisterIdx] -
-                    memory.REGISTERS[xRegisterIdx];
+                hardware.REGISTERS[xRegisterIdx] =
+                    hardware.REGISTERS[yRegisterIdx] -
+                    hardware.REGISTERS[xRegisterIdx];
                 break;
             }
             case 0xE: {
-                if (((memory.REGISTERS[xRegisterIdx] >> 7) & 1) == 1) {
-                    memory.REGISTERS[0xF] = 1;
+                if (((hardware.REGISTERS[xRegisterIdx] >> 7) & 1) == 1) {
+                    hardware.REGISTERS[0xF] = 1;
                 } else {
-                    memory.REGISTERS[0xF] = 0;
+                    hardware.REGISTERS[0xF] = 0;
                 }
-                memory.REGISTERS[xRegisterIdx] = memory.REGISTERS[xRegisterIdx]
+                hardware.REGISTERS[xRegisterIdx] = hardware.REGISTERS[xRegisterIdx]
                                                  << 1;
                 break;
             }
@@ -361,42 +361,42 @@ class Chip8 {
                 break;
             }
             }
-            memory.PC += 2;
+            hardware.PC += 2;
             break;
         }
         case 0x9: {
-            int xRegister = memory.REGISTERS[xRegisterIdx];
-            int yRegister = memory.REGISTERS[yRegisterIdx];
+            int xRegister = hardware.REGISTERS[xRegisterIdx];
+            int yRegister = hardware.REGISTERS[yRegisterIdx];
             if (xRegister != yRegister) {
-                memory.PC += 4;
+                hardware.PC += 4;
             } else {
-                memory.PC += 2;
+                hardware.PC += 2;
             }
             break;
         }
         case 0xA: {
-            memory.I = nnn;
-            memory.PC += 2;
+            hardware.I = nnn;
+            hardware.PC += 2;
             break;
         }
         case 0xB: {
-            int registerValue = memory.REGISTERS[0];
-            memory.PC = nnn + registerValue;
+            int registerValue = hardware.REGISTERS[0];
+            hardware.PC = nnn + registerValue;
             break;
         }
         case 0xC: {
-            memory.REGISTERS[xRegisterIdx] =
+            hardware.REGISTERS[xRegisterIdx] =
                 getRandomByte() & static_cast<uint8_t>(kk);
-            memory.PC += 2;
+            hardware.PC += 2;
             break;
         }
         case 0xD: {
             int spriteHeight = n;
-            memory.REGISTERS[0xF] = 0;
-            auto xRegister = memory.REGISTERS[xRegisterIdx];
-            auto yRegister = memory.REGISTERS[yRegisterIdx];
+            hardware.REGISTERS[0xF] = 0;
+            auto xRegister = hardware.REGISTERS[xRegisterIdx];
+            auto yRegister = hardware.REGISTERS[yRegisterIdx];
             for (int row = 0; row < spriteHeight; row++) {
-                auto drawByte = memory.MEMORY[memory.I + row];
+                auto drawByte = hardware.MEMORY[hardware.I + row];
                 for (int col = 0; col < BITS_PER_BYTE; col++) {
                     // iterate over bits
                     bool pixelOn = drawByte & (0x80 >> col);
@@ -408,35 +408,35 @@ class Chip8 {
                         int bitIdx =
                             7 - ((yPixel * CHIP8_DISPLAY_WIDTH + xPixel) %
                                  BITS_PER_BYTE);
-                        if (memory.MEMORY[Chip8Hardware::DISPLAY_START +
+                        if (hardware.MEMORY[Chip8Hardware::DISPLAY_START +
                                           byteIdx] &
                             (1 << bitIdx)) {
-                            memory.REGISTERS[0xF] = 1;
+                            hardware.REGISTERS[0xF] = 1;
                         }
-                        memory.MEMORY[Chip8Hardware::DISPLAY_START + byteIdx] ^=
+                        hardware.MEMORY[Chip8Hardware::DISPLAY_START + byteIdx] ^=
                             (1 << bitIdx);
                     }
                 }
             }
-            memory.PC += 2;
+            hardware.PC += 2;
             break;
         }
         case 0xE: {
-            uint8_t key = memory.REGISTERS[xRegisterIdx] & 0xF;
+            uint8_t key = hardware.REGISTERS[xRegisterIdx] & 0xF;
             switch (instruction & 0xFF) {
             case 0x9E: {
-                if (((1 << key) & memory.KEY_STATE) != 0) {
-                    memory.PC += 4;
+                if (((1 << key) & hardware.KEY_STATE) != 0) {
+                    hardware.PC += 4;
                 } else {
-                    memory.PC += 2;
+                    hardware.PC += 2;
                 }
                 break;
             }
             case 0xA1: {
-                if (((1 << key) & memory.KEY_STATE) == 0) {
-                    memory.PC += 4;
+                if (((1 << key) & hardware.KEY_STATE) == 0) {
+                    hardware.PC += 4;
                 } else {
-                    memory.PC += 2;
+                    hardware.PC += 2;
                 }
                 break;
             }
@@ -449,44 +449,44 @@ class Chip8 {
                 static bool waitingForKeyUp = false;
                 static uint8_t keyPressed = 0;
 
-                if (!waitingForKeyUp && memory.KEY_STATE) {
-                    keyPressed = std::countr_zero(memory.KEY_STATE);
+                if (!waitingForKeyUp && hardware.KEY_STATE) {
+                    keyPressed = std::countr_zero(hardware.KEY_STATE);
                     waitingForKeyUp = true;
-                } else if (waitingForKeyUp && !memory.KEY_STATE) {
+                } else if (waitingForKeyUp && !hardware.KEY_STATE) {
                     waitingForKeyUp = false;
-                    memory.REGISTERS[xRegisterIdx] = keyPressed;
-                    memory.PC += 2;
+                    hardware.REGISTERS[xRegisterIdx] = keyPressed;
+                    hardware.PC += 2;
                 }
                 break;
             }
             case 0x15: {
-                memory.DELAY_TIMER = memory.REGISTERS[xRegisterIdx];
+                hardware.DELAY_TIMER = hardware.REGISTERS[xRegisterIdx];
 
-                memory.PC += 2;
+                hardware.PC += 2;
                 break;
             }
             case 0x18: {
-                memory.SOUND_TIMER = memory.REGISTERS[xRegisterIdx];
-                memory.PC += 2;
+                hardware.SOUND_TIMER = hardware.REGISTERS[xRegisterIdx];
+                hardware.PC += 2;
                 break;
             }
             case 0x1E: {
-                memory.I += memory.REGISTERS[xRegisterIdx];
-                memory.PC += 2;
+                hardware.I += hardware.REGISTERS[xRegisterIdx];
+                hardware.PC += 2;
                 break;
             }
             case 0x55: {
                 // TODO conflicting specs here
-                memcpy(&memory.MEMORY[memory.I], &memory.REGISTERS[0],
+                memcpy(&hardware.MEMORY[hardware.I], &hardware.REGISTERS[0],
                        xRegisterIdx + 1);
-                memory.PC += 2;
+                hardware.PC += 2;
                 break;
             }
             case 0x65: {
                 // TODO conflicting specs here
-                memcpy(&memory.REGISTERS[0], &memory.MEMORY[memory.I],
+                memcpy(&hardware.REGISTERS[0], &hardware.MEMORY[hardware.I],
                        xRegisterIdx + 1);
-                memory.PC += 2;
+                hardware.PC += 2;
                 break;
             }
             default: {
@@ -505,22 +505,22 @@ class Chip8 {
     }
 
     void decrementTimers() {
-        if (memory.DELAY_TIMER > 0) {
-            memory.DELAY_TIMER--;
+        if (hardware.DELAY_TIMER > 0) {
+            hardware.DELAY_TIMER--;
         }
-        if (memory.SOUND_TIMER > 0) {
-            memory.SOUND_TIMER--;
+        if (hardware.SOUND_TIMER > 0) {
+            hardware.SOUND_TIMER--;
         }
     }
 
     void logState() {
-        SDL_Log("PC: %x", memory.PC);
-        SDL_Log("SP: %x", memory.SP);
+        SDL_Log("PC: %x", hardware.PC);
+        SDL_Log("SP: %x", hardware.SP);
         std::string registers = "";
 
         for (int i = 0; i < Chip8Hardware::REGISTER_COUNT; i++) {
             registers += "V[" + std::to_string(i) +
-                         "]=" + std::to_string(memory.REGISTERS[i]) + " ";
+                         "]=" + std::to_string(hardware.REGISTERS[i]) + " ";
         }
         SDL_Log("%s", registers.c_str());
     }
@@ -528,7 +528,7 @@ class Chip8 {
     uint8_t getRandomByte() { return dist(gen); }
 
   private:
-    Chip8Hardware memory;
+    Chip8Hardware hardware;
     std::mt19937 gen;
     std::uniform_int_distribution<uint8_t> dist;
     const int instructionPerFrame;

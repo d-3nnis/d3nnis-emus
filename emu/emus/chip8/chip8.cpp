@@ -1,7 +1,6 @@
 #include "chip8.hpp"
 #include "Chip8SDLDisplay.hpp"
 #include "SDL3/SDL_events.h"
-#include "SDL3/SDL_log.h"
 #include "SDL3/SDL_timer.h"
 #include <chrono>
 #include <unistd.h>
@@ -29,7 +28,7 @@ void Chip8::startChip8Emu(void) {
             handleInstruction();
         }
         decrementTimers();
-        display.update(&this->memory.MEMORY[Chip8Hardware::DISPLAY_START],
+        display.update(&this->hardware.MEMORY[Chip8Hardware::DISPLAY_START],
                        Chip8Hardware::DISPLAY_SIZE);
         auto frame_end = std::chrono::steady_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(

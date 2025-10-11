@@ -211,8 +211,6 @@ class Chip8 {
         const int n = (instruction & 0x000F);
         const int kk = (instruction & 0x00FF);
 
-        logState();
-        SDL_Log("instruction: %x\n", instruction);
         switch ((instruction & 0xF000) >> 12) {
         case 0x0: {
             switch (instruction) {

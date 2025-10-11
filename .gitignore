@@ -53,3 +53,4 @@ pkg/
 compile_commands.json
 
 **/test_roms/*
+**/vendor/*

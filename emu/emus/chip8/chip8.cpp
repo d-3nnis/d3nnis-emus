@@ -287,6 +287,11 @@ Chip8::Status Chip8::step() {
     }
     case 0xF:
         switch (instruction & 0xFF) {
+        case 0x07: {
+            hardware.REGISTERS[xRegisterIdx] = hardware.DELAY_TIMER;
+            hardware.PC += 2;
+            break;
+        }
         case 0x0A: {
             static bool waitingForKeyUp = false;
             static uint8_t keyPressed = 0;
@@ -303,7 +308,6 @@ Chip8::Status Chip8::step() {
         }
         case 0x15: {
             hardware.DELAY_TIMER = hardware.REGISTERS[xRegisterIdx];
-
             hardware.PC += 2;
             break;
         }
@@ -314,6 +318,24 @@ Chip8::Status Chip8::step() {
         }
         case 0x1E: {
             hardware.I += hardware.REGISTERS[xRegisterIdx];
+            hardware.PC += 2;
+            break;
+        }
+        case 0x29: {
+            hardware.I = Chip8Hardware::FONT_SET_START +
+                         (hardware.REGISTERS[xRegisterIdx] *
+                          Chip8Sprites::SPRITE_HEIGHT);
+            hardware.PC += 2;
+            break;
+        }
+        case 0x33: {
+            int value = hardware.REGISTERS[xRegisterIdx];
+            int hundreds = value / 100;
+            int tens = (value / 10) % 10;
+            int ones = value % 10;
+            hardware.MEMORY[hardware.I] = hundreds;
+            hardware.MEMORY[hardware.I + 1] = tens;
+            hardware.MEMORY[hardware.I + 2] = ones;
             hardware.PC += 2;
             break;
         }

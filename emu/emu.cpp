@@ -34,8 +34,6 @@ int main(int argc, char *argv[]) {
     emulator.loadProgram(romBuffer);
 
     Chip8SDLPlatform::Config chip8Config = {
-        .displayPixelWidth = 64,
-        .displayPixelHeight = 32,
         .displayScale = 10,
         .instructionsPerFrame = instructionsPerUpdate,
     };

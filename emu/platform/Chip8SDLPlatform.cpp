@@ -15,35 +15,36 @@
 #include <sys/types.h>
 #include <vector>
 
+#include "chip8.hpp"
 #include "common.hpp"
 
 Chip8SDLPlatform::~Chip8SDLPlatform() {
     if (window) {
         SDL_DestroyWindow(window);
+        window = nullptr;
     }
     if (renderer) {
         SDL_DestroyRenderer(renderer);
+        renderer = nullptr;
     }
     if (texture) {
         SDL_DestroyTexture(texture);
+        texture = nullptr;
     }
     SDL_Quit();
 }
 
-Chip8SDLPlatform::Chip8SDLPlatform(const Config &config)
-    : config(config), displayWidth(config.displayPixelWidth),
-      displayHeight(config.displayPixelHeight) {
-
+Chip8SDLPlatform::Chip8SDLPlatform(const Config &config) : config(config) {
     // TODO use some kind of singleton manager?
     if (SDL_WasInit(SDL_INIT_VIDEO)) {
         throw std::runtime_error("SDL already initialized");
     }
 
-    SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_EVENTS);
+    SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
 
     window = SDL_CreateWindow(
-        "CHIP-8 Emulator", config.displayPixelWidth * config.displayScale,
-        config.displayPixelHeight * config.displayScale, SDL_WINDOW_RESIZABLE);
+        "CHIP-8 Emulator", Chip8::getDisplayWidth() * config.displayScale,
+        Chip8::getDisplayHeight() * config.displayScale, SDL_WINDOW_RESIZABLE);
 
     renderer = SDL_CreateRenderer(window, nullptr);
 
@@ -51,11 +52,11 @@ Chip8SDLPlatform::Chip8SDLPlatform(const Config &config)
     texture =
         SDL_CreateTexture(renderer, SDL_PixelFormat::SDL_PIXELFORMAT_RGBA8888,
                           SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING,
-                          config.displayPixelWidth, config.displayPixelHeight);
+                          Chip8::getDisplayWidth(), Chip8::getDisplayHeight());
 
     SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
 
-    pixelBuffer.resize(config.displayPixelWidth * config.displayPixelHeight);
+    pixelBuffer.resize(Chip8::getDisplayWidth() * Chip8::getDisplayHeight());
 }
 
 DisplayStatus
@@ -71,8 +72,9 @@ Chip8SDLPlatform::render(std::span<const uint8_t> chip8DisplayBuf) {
         bool bitOn = (chip8DisplayBuf[byteIdx] >> bitIdx) & 1;
         pixelBuffer.at(i) = bitOn ? 0xFFFFFFFF : 0x00000000;
     }
+
     SDL_UpdateTexture(texture, nullptr, pixelBuffer.data(),
-                      displayWidth * sizeof(uint32_t));
+                      Chip8::getDisplayWidth() * sizeof(uint32_t));
     SDL_RenderClear(renderer);
     SDL_RenderTexture(renderer, texture, NULL, NULL);
     SDL_RenderPresent(renderer);
@@ -85,27 +87,24 @@ void Chip8SDLPlatform::run(Chip8 &emulator) {
     while (!quit) {
         auto frameStart = std::chrono::steady_clock::now();
 
-        // Handle input
         handleEvents(emulator, quit);
 
-        // Execute instructions
         for (int i = 0; i < config.instructionsPerFrame; i++) {
             auto status = emulator.step();
             if (status != Chip8::Status::OK) {
+                // TODO update error handling
                 SDL_Log("Emulator error: %d", static_cast<int>(status));
-                // Could handle error, for now just log and continue
             }
         }
 
-        // Update timers (60Hz)
         emulator.decrementTimers();
-
-        // Render
         render(emulator.getDisplayBuffer());
+        if (emulator.shouldBeep()) {
+            audio.play();
+        } else {
+            audio.stop();
+        }
 
-        // TODO: Audio - play beep if emulator.shouldBeep()
-
-        // Frame timing
         auto frameEnd = std::chrono::steady_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
                            frameEnd - frameStart)

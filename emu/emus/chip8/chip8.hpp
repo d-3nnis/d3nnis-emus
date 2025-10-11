@@ -9,6 +9,7 @@
 #include <limits>
 #include <random>
 #include <span>
+#include <sstream>
 #include <stdexcept>
 #include <sys/types.h>
 #include <unistd.h>
@@ -89,18 +90,20 @@ class Chip8 {
     static constexpr int TARGET_FPS = 60;
     static constexpr int FRAME_TIME_MS = 1000 / TARGET_FPS;
 
-    Chip8() : hardware() {
+    Chip8()
+        : hardware(), gen(std::random_device{}()),
+          dist(std::numeric_limits<uint8_t>::min(),
+               std::numeric_limits<uint8_t>::max()) {
         assert(CHIP8_DISPLAY_HEIGHT * CHIP8_DISPLAY_WIDTH ==
                Chip8Hardware::DISPLAY_SIZE * BITS_PER_BYTE);
         // TODO improve me
         memcpy(hardware.MEMORY.data(), Chip8Sprites::sprites.data(),
                Chip8Sprites::SPRITE_MEMORY_SIZE);
+    }
 
-        std::random_device rd;
-        std::mt19937 gen(rd());
-        std::uniform_int_distribution<uint8_t> dist(
-            std::numeric_limits<uint8_t>::min(),
-            std::numeric_limits<uint8_t>::max());
+    void reset() {
+        hardware.reset();
+        clearDisplay();
     }
 
     enum class Status {
@@ -118,20 +121,29 @@ class Chip8 {
 
     void handleKeyUp(uint8_t chip8code);
     void handleKeyDown(uint8_t chip8code);
+    static constexpr const int getDisplayWidth() { return CHIP8_DISPLAY_WIDTH; }
+    static constexpr const int getDisplayHeight() {
+        return CHIP8_DISPLAY_HEIGHT;
+    }
 
     Status step();
     void decrementTimers();
-    void logState() {
-        // SDL_Log("PC: %x", hardware.PC);
-        // SDL_Log("SP: %x", hardware.SP);
-        // std::string registers = "";
-        //
-        // for (int i = 0; i < Chip8Hardware::REGISTER_COUNT; i++) {
-        //     registers += "V[" + std::to_string(i) +
-        //                  "]=" + std::to_string(hardware.REGISTERS[i]) + " ";
-        // }
-        // SDL_Log("%s", registers.c_str());
+    std::string getState() {
+        std::stringstream out;
+        out << "PC: " << std::hex << hardware.PC << "\n";
+        out << "SP: " << std::hex << hardware.SP << "\n";
+        for (int i = 0; i < Chip8Hardware::REGISTER_COUNT; i++) {
+            out << "V[" << std::hex << i << "]=" << std::hex
+                << static_cast<int>(hardware.REGISTERS[i]) << " ";
+        }
+        out << "\nI: " << std::hex << hardware.I << "\n";
+        out << "DT: " << std::hex << static_cast<int>(hardware.DELAY_TIMER)
+            << "\n";
+        out << "ST: " << std::hex << static_cast<int>(hardware.SOUND_TIMER)
+            << "\n";
+        return out.str();
     }
+    bool shouldBeep() { return hardware.SOUND_TIMER > 0; }
 
   private:
     void clearDisplay() {

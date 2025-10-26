@@ -31,7 +31,6 @@ Chip8SDLPlatform::~Chip8SDLPlatform() {
         SDL_DestroyTexture(texture);
         texture = nullptr;
     }
-    SDL_Quit();
 }
 
 Chip8SDLPlatform::Chip8SDLPlatform(const Config &config) : config(config) {
